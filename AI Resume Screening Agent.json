@@ -1,0 +1,382 @@
+{
+  "name": "AI Resume Screening Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AI Resume Screening",
+        "formDescription": "Upload your resume PDF and paste the Job Description.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Resume PDF",
+              "fieldType": "file",
+              "fieldName": "resume",
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea",
+              "fieldName": "job_description",
+              "placeholder": "Job Description here",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -672,
+        -176
+      ],
+      "id": "ea2bf122-1a5a-47ba-b260-16ca71c9536c",
+      "name": "On form submission",
+      "webhookId": "711dfeeb-dfbc-44dc-99a4-8cbac52dc531"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -448,
+        -176
+      ],
+      "id": "8398fac9-35a2-4158-bb3b-f4ead60fbaa2",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert HR Resume Screening Assistant.\n\nYour task is to compare the candidate's resume with the provided job description and evaluate how well the candidate matches the role.\n\nJob Description:\n{{ $('On form submission').item.json.job_description }}\n\nResume:\n{{ $json.text }}\n\nAnalyze the resume and return ONLY a valid JSON object in the following format:\n\n{\n  \"candidate_name\": \"\",\n  \"email\": \"\",\n  \"phone\": \"\",\n  \"score\": 0,\n  \"matched_skills\": [],\n  \"missing_skills\": [],\n  \"experience_summary\": \"\",\n  \"recommendation\": \"\",\n  \"reason\": \"\"\n}\n\nRules:\n\n- Compare the resume against the job description.\n- Score must be an integer between 0 and 100.\n- Recommendation must be either \"Shortlist\" or \"Reject\".\n- Extract the candidate's name, email, and phone number from the resume.\n- List only the relevant matched skills.\n- List the important missing skills.\n- Write a short experience summary (maximum 2 sentences).\n- Explain the recommendation in the \"reason\" field.\n\nIMPORTANT:\n\n- Return ONLY valid JSON.\n- Do NOT return Markdown.\n- Do NOT use ```json or ``` fences.\n- Do NOT include explanations, comments, headings, or extra text.\n- Every field must have a value.\n- If information is unavailable, use an empty string \"\" or an empty array [].",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -224,
+        -176
+      ],
+      "id": "a2809262-f8b3-4dc4-b905-6057c73be0d0",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        48
+      ],
+      "id": "b8edbe47-7283-4846-bb2e-0d14905828ef",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "0ddZpVeUdLQoPfOz",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "536721bd-d44c-4337-80a3-3d049d68616b",
+              "leftValue": "={{ JSON.parse($json.output).score }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        128,
+        -176
+      ],
+      "id": "79037734-ad18-4454-965c-f9ca2cbbf5be",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16cSJMNMf-4rhIstnkYhjOMwRH-iTpsXoXKYeDq-I_CA",
+          "mode": "list",
+          "cachedResultName": "Google Sheets (Append Row)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16cSJMNMf-4rhIstnkYhjOMwRH-iTpsXoXKYeDq-I_CA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16cSJMNMf-4rhIstnkYhjOMwRH-iTpsXoXKYeDq-I_CA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Candidate Name": "={{ JSON.parse($json.output).candidate_name }}",
+            "Email": "={{ JSON.parse($json.output).email }}",
+            "Phone": "={{ JSON.parse($json.output).phone }}",
+            "Score": "={{ JSON.parse($json.output).score }}",
+            "Recommendation": "={{ JSON.parse($json.output).recommendation }}",
+            "Matched Skills": "={{ JSON.parse($json.output).matched_skills.join(\", \") }}",
+            "Missing Skills": "={{ JSON.parse($json.output).missing_skills.join(\", \") }}",
+            "Reason": "={{ JSON.parse($json.output).reason }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Candidate Name",
+              "displayName": "Candidate Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommendation",
+              "displayName": "Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Matched Skills",
+              "displayName": "Matched Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Missing Skills",
+              "displayName": "Missing Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        352,
+        -176
+      ],
+      "id": "d6310932-30b5-4c60-b4f8-216572c45359",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5dMADFJGlBXeaF8v",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "Congratulations! Your Resume Has Been Shortlisted",
+        "message": "={{ `\n<p>Dear ${$json[\"Candidate Name\"]},</p>\n\n<p>Congratulations!</p>\n\n<p>We are pleased to inform you that your resume has been shortlisted.</p>\n\n<p><strong>Resume Score:</strong> ${$json.Score}/100</p>\n\n<p>Our HR team will contact you shortly regarding the next steps.</p>\n\n<p>Best Regards,<br>\nHR Team</p>\n` }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        576,
+        -176
+      ],
+      "id": "ca10eb21-12e2-4d90-8696-d5b713999f5b",
+      "name": "Send a message",
+      "webhookId": "f2a930fd-9a69-4d1f-bbfc-52d77d110ab2",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "k9X1FsEeLDpa6MSU",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ JSON.parse($node[\"AI Agent\"].json.output).email }}",
+        "subject": "Application Status Update",
+        "message": "=<p>Dear {{ JSON.parse($node[\"AI Agent\"].json.output).candidate_name }},</p>\n\n<p>Thank you for applying.</p>\n\n<p>We appreciate the time you invested in the application process.</p>\n\n<p>After reviewing your resume, we have decided to move forward with other candidates whose qualifications more closely match our current requirements.</p>\n\n<p>We encourage you to apply again in the future.</p>\n\n<p>Best Regards,<br>\nHR Team</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        32
+      ],
+      "id": "aa13c037-10f9-4c26-a52d-e8d593c626ff",
+      "name": "Send a message1",
+      "webhookId": "c892d525-3962-4dfb-a0d2-bfce03b7f58b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "k9X1FsEeLDpa6MSU",
+          "name": "Gmail account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f5d2628e-7dc2-42dd-825d-42a2b4ac3a83",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a2722732ac6e7a4dd8b19a9a2e10278bebb09f92074d992974928382839956ee"
+  },
+  "nodeGroups": [],
+  "id": "cNlOyqtZEWfyPKGF",
+  "tags": []
+}
